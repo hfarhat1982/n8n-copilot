@@ -1835,10 +1835,12 @@ export function useCanvasOperations() {
 			trackBulk = true,
 			trackHistory = true,
 			viewport,
+			regenerateIds = true,
 		}: {
 			importTags?: boolean;
 			trackBulk?: boolean;
 			trackHistory?: boolean;
+			regenerateIds?: boolean;
 			viewport?: ViewportBoundaries;
 		} = {},
 	): Promise<WorkflowDataUpdate> {
@@ -1884,8 +1886,10 @@ export function useCanvasOperations() {
 					// Set all new ids when pasting/importing workflows
 					if (node.id) {
 						const previousId = node.id;
-						const newId = nodeHelpers.assignNodeId(node);
-						nodeIdMap[newId] = previousId;
+						if (regenerateIds) {
+							const newId = nodeHelpers.assignNodeId(node);
+							nodeIdMap[newId] = previousId;
+						}
 					} else {
 						nodeHelpers.assignNodeId(node);
 					}
@@ -2126,7 +2130,7 @@ export function useCanvasOperations() {
 		deleteNodes(ids);
 	}
 
-	async function openExecution(executionId: string) {
+	async function openExecution(executionId: string, nodeId?: string) {
 		let data: IExecutionResponse | undefined;
 		try {
 			data = await workflowsStore.getExecution(executionId);
@@ -2153,6 +2157,18 @@ export function useCanvasOperations() {
 
 		if (!['manual', 'evaluation'].includes(data.mode)) {
 			workflowsStore.setWorkflowPinData({});
+		}
+
+		if (nodeId) {
+			const node = workflowsStore.getNodeById(nodeId);
+			if (node) {
+				ndvStore.activeNodeName = node.name;
+			} else {
+				toast.showError(
+					new Error(`Node with id "${nodeId}" could not be found!`),
+					i18n.baseText('nodeView.showError.openExecution.node'),
+				);
+			}
 		}
 
 		uiStore.stateIsDirty = false;
